@@ -1,0 +1,47 @@
+"""Time 
+"""
+
+from dataclasses import dataclass
+from ..components.temporal.period import Period
+from ..components._core.sample import Index
+
+
+@dataclass
+class Time(Index):
+    """Temporal representation of a system"""
+
+    def __post_init__(self):
+        self.periods: list[Period] = []
+
+    def __setattr__(self, name, value):
+
+        if isinstance(value, Period):
+            value.time = self
+            self.periods.append(value)
+
+        super().__setattr__(name, value)
+
+    @property
+    def horizon(self) -> Period:
+        """The sparsest scale is treated as the horizon"""
+        return self.sparsest
+
+    @property
+    def densest(self) -> Period:
+        """The densest period"""
+        return min(self.periods, key=lambda x: x.periods)
+
+    @property
+    def sparsest(self) -> Period:
+        """The sparsest period"""
+        return max(self.periods, key=lambda x: x.periods)
+
+    @property
+    def tree(self) -> list[Period]:
+        """Return the tree of periods"""
+        hrz = self.horizon
+        return {hrz.howmany(prd): prd for prd in self.periods}
+
+    def find(self, size: int):
+        """Find the period that has the length"""
+        return self.tree[size]
