@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from itertools import accumulate
 from operator import is_not, mul
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ...components.task.process import Process
 from ...components.spatial.link import Linkage
 from ...components.spatial.loc import Location
+from ...components.task.process import Process
 from ...components.temporal.period import Scale
 
 if TYPE_CHECKING:

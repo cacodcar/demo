@@ -110,6 +110,11 @@ class I:
         self.one: I = None
         self.two: I = None
 
+        self.parameters = []
+        self.variables = []
+        self.functions = []
+        self.constraints = []
+
     def step(self, i: int) -> list[X]:
         """Step up or down the index set
         Args:
@@ -130,7 +135,9 @@ class I:
         """
         if '_' in self.name:
             name, sup = self.name.split('_')
-            return name, r'^{' + sup + r'}'
+            if sup:
+                return name, r'^{' + sup + r'}'
+            return '-' + self.name[:-1], ''
         return self.name, ''
 
     def latex(self, descriptive: bool = True, int_not: bool = False) -> str:
@@ -157,7 +164,7 @@ class I:
                 )
                 return rf'{mathcal} = \{{ {members} \}}'
 
-            members = r', '.join(str(x) for x in self._)
+            members = r', '.join(x.latex() for x in self._)
             return rf'{mathcal} = \{{ {members} \}}'
 
         return mathcal
@@ -254,7 +261,7 @@ class I:
             if not i in new:
                 new.append(i)
         index = I(*[i.name for i in new], mutable=self.mutable or other.mutable)
-        if self.name != other.name:
+        if other.name and self.name != other.name:
             index.name = f'{self.name} | {other.name}'
         else:
             index.name = self.name
@@ -345,7 +352,7 @@ class I:
             i.name = rf'{(self)}'
             return i
         # will not give error if I and I
-        # safe to say that other is not I but X, Idx, or Skip
+        # other isI but X, Idx, or Skip
         i._ = [other & i for i in self._]
         i.name = rf'{(other, self)}'
         return i

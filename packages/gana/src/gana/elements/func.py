@@ -10,8 +10,8 @@ from .cons import Cons
 
 if TYPE_CHECKING:
     from ..sets.function import F
-    from .var import Var
     from .pvar import PVar
+    from .var import Var
 
 
 class Func:
@@ -192,7 +192,8 @@ class Func:
         """Display the function"""
         display(Math(self.latex()))
 
-    def isnnvar(self):
+    @property
+    def isnegvar(self):
         """Is this a neg variable"""
         if (
             isinstance(self.one, (int, float))

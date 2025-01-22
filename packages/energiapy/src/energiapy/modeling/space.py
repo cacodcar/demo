@@ -1,9 +1,9 @@
 """Space 
 """
 
+from ..components._core.tag import Name
 from ..components.spatial.linkage import Link
 from ..components.spatial.location import Loc
-from ..components._core.tag import Name
 
 
 class Space(Name):
@@ -33,4 +33,17 @@ class Space(Name):
     @property
     def network(self):
         """An encompassing region"""
-        return max(self.locs, key=lambda x: x.depth())
+
+        if not self.locs:
+            ntw = Loc()
+            ntw.name = 'ntw'
+            return ntw
+
+        if len(self.locs) == 1:
+            return self.locs[0]
+        locs = [loc for loc in self.locs if not loc.isin]
+        ntw = Loc(*locs)
+        ntw.name = 'ntw'
+        return ntw
+
+        # return max(self.locs, key=lambda x: x.depth())

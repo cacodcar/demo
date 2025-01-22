@@ -8,7 +8,6 @@ from IPython.display import Math, display
 
 from .cons import Cons
 
-
 if TYPE_CHECKING:
     from ..sets.theta import T
 

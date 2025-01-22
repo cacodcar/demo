@@ -46,6 +46,9 @@ class C:
     ):
         self.variables = funcs.variables
 
+        index = funcs.index
+        index.constraints.append(self)
+        self.index = index
         self.funcs = funcs
 
         self.leq = leq
@@ -55,7 +58,7 @@ class C:
         # whether the constraint is binding
         self.binding = False
 
-        if self.funcs.isnnvar and self.leq:
+        if self.funcs.isnegvar and self.leq:
             self.nn = True
         else:
             self.nn = False
@@ -64,9 +67,6 @@ class C:
             Cons(parent=self, pos=n, func=f, leq=self.leq, nn=self.nn)
             for n, f in enumerate(self.funcs)
         ]
-
-        self.index = self.funcs.index
-        # self.idx = self.funcs.idx
 
         if self.leq:
             self.name = self.funcs.name + r'<=0'

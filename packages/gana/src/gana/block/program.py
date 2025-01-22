@@ -10,16 +10,15 @@ from ..elements.cons import Cons
 from ..elements.func import Func
 from ..elements.idx import X
 from ..elements.obj import Obj
-from ..elements.var import Var
 from ..elements.pvar import PVar
+from ..elements.var import Var
 from ..sets.constraint import C
 from ..sets.function import F
 from ..sets.index import I
 from ..sets.parameter import P
-from ..sets.variable import V
 from ..sets.theta import T
+from ..sets.variable import V
 from .sets import Sets
-
 
 try:
     from pyomo.environ import ConcreteModel as PyoModel
@@ -163,9 +162,14 @@ class Prg:
             if not name in self.names:
                 self.names.append(name)
                 setattr(self.sets, name, value)
-                skip_set = False
+                make_set = False
             else:
                 par_ex: P = getattr(self.sets, name)
+                if par_ex.isnum and value.isnum:
+                    make_set = False
+                    par_ex.name = f'[ {par_ex.name}, {value.name} ]'
+                else:
+                    make_set = True
 
                 if set(value.index).issubset(par_ex.index):
                     return
@@ -174,8 +178,7 @@ class Prg:
                 par_ex.index |= value.index
                 par_ex.idx = {idx: par for idx, par in zip(par_ex.index, par_ex._)}
 
-                skip_set = True
-            if not skip_set:
+            if not make_set:
                 super().__setattr__(name, value)
             return
 
@@ -384,17 +387,17 @@ class Prg:
 
         g < = 0
         """
-        g_ = []
+        if zero:
+            _G = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+        else:
+            _G = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
 
-        for c in self.leqcons():
-            if zero:
-                row = [0] * len(self.contvars())
-            else:
-                row = [None] * len(self.contvars())
-            for n, value in zip(c.X, c.A):
-                row[n] = value
-            g_.append(row)
-        return g_
+        for n, c in enumerate(self.leqcons()):
+            for x, a in zip(c.X, c.A):
+                if x is not None:
+                    _G[n][x] = a
+
+        return _G
 
     @property
     def H(self, zero: bool = True) -> list[float | None]:
@@ -402,33 +405,32 @@ class Prg:
 
         h = 0
         """
-        h_ = []
+        if zero:
+            _H = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+        else:
+            _H = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
 
-        for c in self.eqcons():
-            if zero:
-                row = [0] * len(self.contvars())
-            else:
-                row = [None] * len(self.contvars())
-            for n, value in zip(c.X, c.A):
-                row[n] = value
-            h_.append(row)
-        return h_
+        for n, c in enumerate(self.eqcons()):
+            for x, a in zip(c.X, c.A):
+                if x is not None:
+                    _H[n][x] = a
+
+        return _H
 
     @property
     def NN(self, zero: bool = True) -> list[float | None]:
         """Matrix of Variable coefficients for non negative cons"""
-        nn_ = []
+        if zero:
+            _NN = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+        else:
+            _NN = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
 
-        for c in self.nncons():
-            if zero:
-                row = [0] * len(self.contvars())
-            else:
-                row = [None] * len(self.contvars())
-            for n, value in zip(c.X, c.A):
-                if n is not None:
-                    row[n] = value
-            nn_.append(row)
-        return nn_
+        for n, c in enumerate(self.nncons()):
+            for x, a in zip(c.X, c.A):
+                if x is not None:
+                    _NN[n][x] = a
+
+        return _NN
 
     @property
     def CRa(self) -> list[list[float | None]]:
@@ -617,7 +619,8 @@ class Prg:
             print()
 
             for i in self.sets.index:
-                i.pprint(True)
+                if len(i) != 0:
+                    i.pprint(True)
 
         if self.objectives:
             print()
@@ -626,18 +629,51 @@ class Prg:
 
             for o in self.objectives:
                 o.pprint()
-
-        print()
-        print(r'---Such that---')
-        print()
+        if self.functions:
+            print()
+            print(r'---Functions---')
+            print()
+            for f in self.functions:
+                f.pprint()
 
         if descriptive:
-            for c in self.cons():
-                c.pprint()
+
+            print()
+            print(r'---Such that---')
+            print()
+
+            if self.leqcons():
+                print(r'Inequality Constraints:')
+                for c in self.leqcons():
+                    c.pprint()
+            if self.eqcons():
+                print(r'Equality Constraints:')
+                for c in self.eqcons():
+                    c.pprint()
+
+            if self.nncons():
+                print(r'Non-Negativity Constraints:')
+                for c in self.nncons():
+                    c.pprint()
 
         else:
-            for c in self.sets.cons():
-                c.pprint()
+
+            if self.sets.nncons():
+                print(r'Non-Negative Variables:')
+                self.sets.I_nn.pprint()
+
+            print()
+            print(r'---Such that---')
+            print()
+
+            if self.sets.leqcons():
+                print(r'Inequality Constraints:')
+                for c in self.sets.leqcons():
+                    c.pprint()
+            if self.sets.eqcons():
+                print(r'Equality Constraints:')
+                for c in self.sets.eqcons():
+                    c.pprint()
 
     def __str__(self):
         return rf'{self.name}'

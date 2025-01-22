@@ -5,97 +5,35 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from .._core.modeling import Component
+
 from .task import Task
 
+from ...decisions.default import Capacitate, Operate
 
 if TYPE_CHECKING:
     from ..measure.basis import Basis
-    from ..spatial.location import Loc
-    from ..temporal.period import Period
+    from ..commodity.resource import Resource
 
 
-# class Balance:
-#     def __init__(self, process: Process):
-#         self.process = process
-
-#         self.resource: Resource = None
-
-#     @property
-#     def network(self):
-#         """Circumscribing Loc"""
-#         return self.process.network
-
-#     @property
-#     def horizon(self):
-#         """Circumscribing Period"""
-#         return self.process.horizon
-
-#     @property
-#     def prg(self):
-#         return self.process.prg
-
-#     def __call__(self, resource: Resource):
-#         self.resource = resource
-#         return self
-
-#     def __eq__(self, other: Conv):
-#         setattr(
-#             self.prg,
-#             'produce',
-#             V(
-#                 self.resource.x,
-#                 self.process.x,
-#                 self.network.x,
-#                 self.horizon.xset,
-#                 mutable=True,
-#             ),
-#         )
-#         exp = getattr(self.prg, 'produce')(
-#             self.resource.x, self.process.x, self.network.x, self.horizon.xset
-#         )
-#         if not isinstance(other.res, list):
-#             res_ = [other.res]
-#             mul_ = [other.mul]
-#         else:
-#             res_ = other.res
-#             mul_ = other.mul
-#         for res, par in zip(res_, mul_):
-#             if par > 0:
-#                 setattr(
-#                     self.prg,
-#                     'produce',
-#                     V(
-#                         res.x,
-#                         self.process.x,
-#                         self.network.x,
-#                         self.horizon.xset,
-#                         mutable=True,
-#                     ),
-#                 )
-#                 exp += par * getattr(self.prg, 'produce')(
-#                     res.x, self.process.x, self.network.x, self.horizon.xset
-#                 )
-#             if par < 0:
-#                 setattr(
-#                     self.prg,
-#                     'consume',
-#                     V(
-#                         res.x,
-#                         self.process.x,
-#                         self.network.x,
-#                         self.horizon.xset,
-#                         mutable=True,
-#                     ),
-#                 )
-#                 exp -= -par * getattr(self.prg, 'consume')(
-#                     res.x, self.process.x, self.network.x, self.horizon.xset
-#                 )
-
-#         setattr(self.prg, self.process.name + '_conv', exp == 0)
-
-
-class Process(Task):
+@dataclass
+class Process(Component, Capacitate, Operate):
     """Process converts one Resource to another Resource"""
 
-    def __init__(self, basis: Basis = None, label: str = None):
-        Task.__init__(self, basis, label)
+    basis: Basis = None
+
+    def __post_init__(self):
+        self.base: Resource = None
+        self.balance: dict[Resource : int | float] = {}
+
+    def __call__(self, thing: Resource | Task):
+        """Task is called with a Resource to be converted"""
+        if isinstance(thing, Task):
+            self.balance = {**self.balance, **thing.balance}
+            self.base = list(self.balance)[0]
+        else:
+            self.base = thing
+            self.balance = {self.base: 1, **self.balance}
+        setattr(self.base, self.name, self)
+        return self

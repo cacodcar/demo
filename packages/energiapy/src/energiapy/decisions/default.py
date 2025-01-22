@@ -1,62 +1,99 @@
-# """Default Decisions"""
-
-# from .action import Action
-# from .conseq import Conseq
-# from .flow import Flow
+"""Default decisions"""
 
 
-# from ..components.impact.categories import Econ
-# from ..components.impact.categories import Environ
-# from ..components.impact.categories import Social
+class Get:
+    """Get the Decision"""
 
-# from ..components.commodity.misc import Cash
-# from ..components.commodity.misc import Land
-# from ..components.commodity.misc import Material
-# from ..components.commodity.resource import Resource
-# from ..components.game.player import Player
-# from ..components.task.process import Process
-# from ..components.spatial.linkage import Link
-# from ..components.spatial.location import Loc
-# from ..components.temporal.period import Period
-# from ..components.types.basic import Name
-# from ..components.types.defined import Index
-
-# setup = Action(Process, label='Capacitate an Operation')
-# dismantle = -setup
-
-# produce = Action(Process, label='Operate an Operation')
-# consume = Flow(Resource, label='Resource consumed by Process operation')
-# produce = -consume
-
-# transport = Action
-# receive = Flow(Resource, Material, label='Resource transported at Loc')
-# deliver = -receive
-
-# store = Action
-# charge = Flow(Resource, Material, label='Resource stored at Loc')
-# discharge = -charge
-
-# buy = Action(Player, label='Trade a Resource')
-# sell = -buy
-
-# use = Flow(Resource, Material, Land, label='Resource Flow caused by Operation Setup')
-# dispose = -use
-
-# recover = Flow(Resource, label='Resource seepage during Process operation')
-# lose = -recover
-
-# earn = Conseq(Econ, Cash, label='Economic Consequence')
-# spend = -earn
-
-# abate = Conseq(Environ, label='Environmental Consequence')
-# emit = -abate
-
-# benefit = Conseq(Social, label='Social Consequence')
-# detriment = -benefit
+    def get(self, decision: str):
+        """Get the decision"""
+        return getattr(getattr(self, 'design'), decision)(self)
 
 
-# setup.use = use
-# setup.dispose = dispose
+class Capacitate(Get):
+    """Capacitate an Operation"""
 
-# operate.consume = consume
-# operate.produce = produce
+    @property
+    def setup(self):
+        """Add Capacity"""
+        return self.get('setup')
+
+    @property
+    def dismantle(self):
+        """Remove Capacity"""
+        return self.get('dismantle')
+
+
+class Trade(Get):
+    """Exchange Resource/Material with another Player"""
+
+    @property
+    def buy(self):
+        return self.get('buy')
+
+    @property
+    def sell(self):
+        return self.get('sell')
+
+
+class Transact(Get):
+    """Exchange Cash with another Player"""
+
+    @property
+    def earn(self):
+        return self.get('earn')
+
+    @property
+    def spend(self):
+        return self.get('spend')
+
+
+class Operate(Get):
+    """Operate an Operation"""
+
+    @property
+    def operate(self):
+        return self.get('operate')
+
+
+class Produce(Get):
+    """Resource Flow resulting from Operate"""
+
+    @property
+    def produce(self):
+        return self.get('produce')
+
+    @property
+    def consume(self):
+        return self.get('consume')
+
+
+class Ship(Get):
+    """Resource Flow between Locations"""
+
+    @property
+    def export(self):
+        return self.get('export')
+
+
+class EnvImp(Get):
+    """Environemntal Impact"""
+
+    @property
+    def emit(self):
+        return self.get('emit')
+
+    @property
+    def abate(self):
+        return self.get('abate')
+
+
+class SocImp(Get):
+    """Social Impact"""
+
+    @property
+    def benefit(self):
+        return self.get('benefit')
+
+    @property
+    def detriment(self):
+        return self.get('detriment')

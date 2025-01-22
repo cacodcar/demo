@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..components.task.process import Process
     from ..components.commodity.resource import Resource
+    from ..components.task.process import Process
 
 
 class Conv:

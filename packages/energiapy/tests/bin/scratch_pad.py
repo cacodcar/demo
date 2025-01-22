@@ -8,9 +8,9 @@ from src.energiapy.blocks.formulate import Constraints, Objective, formulate
 from src.energiapy.blocks.solve import solve
 from src.energiapy.components.location import Location
 from src.energiapy.components.material import Material
-from src.energiapy.components.task.process import Process, VaryingProcess
 from src.energiapy.components.resource import Resource, VaryingResource
 from src.energiapy.components.scenario import Scenario
+from src.energiapy.components.task.process import Process, VaryingProcess
 from src.energiapy.components.temporal_scale import Scale
 
 sys.path.append('../../')

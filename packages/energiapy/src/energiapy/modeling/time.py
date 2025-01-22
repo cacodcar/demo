@@ -2,8 +2,9 @@
 """
 
 from dataclasses import dataclass
-from ..components.temporal.period import Period
+
 from ..components._core.sample import Index
+from ..components.temporal.period import Period
 
 
 @dataclass
@@ -11,6 +12,7 @@ class Time(Index):
     """Temporal representation of a system"""
 
     def __post_init__(self):
+        Index.__post_init__(self)
         self.periods: list[Period] = []
 
     def __setattr__(self, name, value):
@@ -29,12 +31,14 @@ class Time(Index):
     @property
     def densest(self) -> Period:
         """The densest period"""
-        return min(self.periods, key=lambda x: x.periods)
+        if self.periods:
+            return min(self.periods, key=lambda x: x.periods)
 
     @property
     def sparsest(self) -> Period:
         """The sparsest period"""
-        return max(self.periods, key=lambda x: x.periods)
+        if self.periods:
+            return max(self.periods, key=lambda x: x.periods)
 
     @property
     def tree(self) -> list[Period]:
@@ -42,6 +46,6 @@ class Time(Index):
         hrz = self.horizon
         return {hrz.howmany(prd): prd for prd in self.periods}
 
-    def find(self, size: int):
+    def find(self, size: int) -> Period:
         """Find the period that has the length"""
         return self.tree[size]

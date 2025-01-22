@@ -1,15 +1,13 @@
 """Player"""
 
 from dataclasses import dataclass
-from .._core.modeling import Component
 
-from ...decisions.action import Add
-from ..spatial.inventory import Inv
-from ..commodity.resource import Resource
+from ...decisions.default import Capacitate, Trade, Transact
+from .._core.modeling import Component
 
 
 @dataclass
-class Player(Component):
+class Player(Component, Capacitate, Trade, Transact):
     """Player or Actor, the one taking the decisions
     based on information provided
 
@@ -18,8 +16,4 @@ class Player(Component):
     """
 
     def __post_init__(self):
-        self.setup = Add(flow=Inv, label='Setup')
-        self.dismantle = -self.setup
-        self.buy = Add(flow=Resource, label='Buy')
-        self.sell = -self.buy
-
+        Component.__post_init__(self)

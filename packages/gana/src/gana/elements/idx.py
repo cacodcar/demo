@@ -134,7 +134,9 @@ class X:
 
         if self.ordered:
             return self._pos
-        return rf'{self.name}'
+        if self.name[-1] == '_':
+            return '-' + self.name[:-1]
+        return self.name
 
     # check only on the basis of the name
     # does this mean string and int can be compared?

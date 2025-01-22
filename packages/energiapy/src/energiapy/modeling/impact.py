@@ -1,9 +1,7 @@
 """Impact - Environmental and Social"""
 
-from ..components.impact.categories import Econ
-from ..components.impact.categories import Environ
-from ..components.impact.categories import Social
 from ..components._core.tag import Name
+from ..components.impact.categories import Econ, Environ, Social
 
 
 class Impact(Name):
@@ -16,6 +14,11 @@ class Impact(Name):
         self.econs: list[Econ] = []
 
         Name.__init__(self, 'All Impacts')
+
+    @property
+    def indicators(self):
+        """All indicators"""
+        return self.environs + self.socials + self.econs
 
     def __setattr__(self, name, value):
 

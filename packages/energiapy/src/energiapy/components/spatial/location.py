@@ -48,14 +48,6 @@ class Loc(Index):
         """Finds the depth of the Location"""
         return get_depth(self.tree())
 
-    @property
-    def xset(self) -> I:
-        """gana index set (I) of Locations"""
-        if not self._indexed:
-            setattr(self.program, self.name, I(*[i.name for i in self.has]))
-            self._indexed = True
-        return getattr(self.program, self.name)
-
     def __setattr__(self, name, value):
 
         if name == 'currency' and value:
@@ -126,12 +118,19 @@ class Loc(Index):
 
     def __add__(self, location: Self):
         """Creates another location which consists of self and other"""
-        if self.name == '':
+        if not self.name:
             # this happens when adding multiple locations
             return Loc(*self.has, location)
-
         return Loc(location, self)
+
+    def __radd__(self, number: int):
+        """For allowing sum([Loc])"""
+        if isinstance(number, int) and number == 0:
+            return self
 
     def __sub__(self, location: Self):
         """Creates a linkage"""
-        return Link(self, location)
+        return Link(source=self, sink=location)
+
+    def __eq__(self, other: Self):
+        return is_(self, other)

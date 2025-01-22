@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from operator import is_
 from dataclasses import dataclass
+from operator import is_
 from typing import TYPE_CHECKING, Self
 
 from gana.sets.index import I
@@ -36,17 +36,15 @@ class Period(Index):
 
     def isroot(self):
         """Is used to define another period?"""
-        if self.of:
-            return False
-        return True
+        if not self.of:
+            return True
 
     @property
-    def xset(self) -> I:
+    def I(self) -> I:
         """Index set of scale"""
-        if not self._indexed:
-            setattr(self.program, self.name, I(size=self.time.horizon.howmany(self)))
-            self._indexed = True
-        return getattr(self.program, self.name)
+        index = I(size=self.time.horizon.howmany(self), tag=self.label)
+        index.name = self.name
+        return index
 
     def howmany(self, period: Self):
         """How many periods make this period"""
@@ -72,8 +70,8 @@ class Period(Index):
     def __mul__(self, other: int | float):
         if isinstance(other, (int, float)):
             if other < 0:
-                return -Period(-other, self)
-            return Period(other, self)
+                return -Period(periods=-other, of=self)
+            return Period(periods=other, of=self)
         raise ValueError('Time Period can only be multiplied by a number')
 
     def __rmul__(self, other: int | float):
@@ -84,3 +82,6 @@ class Period(Index):
 
     def __len__(self):
         return self.time.horizon.howmany(self)
+
+    def __eq__(self, other: Self):
+        return is_(self, other)

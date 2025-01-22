@@ -5,12 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ...decisions.decision import Decision
-from ...decisions.action import Action
-from ...decisions.conseq import Conseq
-from ...decisions.flow import Flow
 from .sample import Index
-
 
 if TYPE_CHECKING:
     from ..measure.basis import Basis
@@ -22,27 +17,10 @@ class Component(Index):
 
     basis: Basis = None
 
-    def __post_init__(self):
-        self.actions: list[Action] = []
-        self.flows: list[Flow] = []
-        self.conseqs: list[Conseq] = []
-
-    def __setattr__(self, name, value):
-
-        if isinstance(value, Decision):
-            value.name = name
-            value.comp = self
-
-            if isinstance(value, Action):
-                self.actions.append(value)
-
-            elif isinstance(value, Flow):
-                self.flows.append(value)
-
-            elif isinstance(value, Conseq):
-                self.conseqs.append(value)
-
-        super().__setattr__(name, value)
+    @property
+    def design(self):
+        """Design"""
+        return self.model.design
 
     @property
     def network(self):
@@ -63,3 +41,9 @@ class Component(Index):
     def space(self):
         """Space"""
         return self.model.space
+
+    def get(self, decision: str):
+        """Give the decision"""
+        # if not :
+        #     setattr(self, decision, getattr(self.design, decision)(self))
+        return getattr(self.design, decision)(self)

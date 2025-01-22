@@ -16,8 +16,8 @@ from .index import I
 if TYPE_CHECKING:
     from ..elements.idx import Idx, X
     from .parameter import P
-    from .variable import V
     from .theta import T
+    from .variable import V
 
 
 class F:
@@ -50,7 +50,7 @@ class F:
         struct (list[P | T | V | str]): Structure of the function
         rels (list[str]): Relations in the function
         elms (list[P | V]): Elements in the function
-        isnnvar (bool): If the function is -1*v (negation)
+        isnegvar (bool): If the function is -1*v (negation)
         isconsistent (bool): If the function is consistent
         n (int): Number id, set by the program
         pname (str): Name, set by the program
@@ -77,7 +77,7 @@ class F:
         # for multiplication P comes before variable
 
         # if the function is -1*v (negation)
-        self.isnnvar = False
+        self.isnegvar = False
         self.istheta = False
 
         if not consistent:
@@ -122,7 +122,16 @@ class F:
         self.mis = mis
 
         # index is a combination
-        self.index = one.index + two.index
+
+        index = one.index + two.index
+        if index:
+            index.functions.append(self)
+        if one.index:
+            one.index.functions.append(self)
+        if two.index:
+            two.index.functions.append(self)
+
+        self.index = index
 
         # self.consistent()
 
@@ -225,8 +234,8 @@ class F:
     def types(self):
         """Types of the elements"""
         from .parameter import P
-        from .variable import V
         from .theta import T
+        from .variable import V
 
         self.vars = [True if isinstance(i, V) else False for i in self.elems]
         self.pars = [True if isinstance(i, P) else False for i in self.elems]
@@ -308,8 +317,8 @@ class F:
             c = 0
             for e in self.elems:
 
-                from .variable import V
                 from .theta import T
+                from .variable import V
 
                 if isinstance(e, V):
                     A = [[0] * len(self.two_) for _ in range(len(self))]
@@ -385,8 +394,7 @@ class F:
         from .parameter import P
 
         if isinstance(inp, (int, float)):
-            p = P(_=[inp] * len(other))
-            p.index = other.index
+            p = P(other.index, _=[inp] * len(other))
             p.name = str(inp)
             p.isnum = True
             return p, True
@@ -398,7 +406,24 @@ class F:
 
         elif isinstance(inp, P):
             return inp, True
+        return inp, False
 
+    def checkT(self, inp: tuple[int | float], other: V | F) -> T:
+        """Make input into a theta"""
+        from .theta import T
+
+        if isinstance(inp, tuple):
+            t = T(other.index, _=inp)
+            t.name = 'Theta'
+            return t
+
+        elif isinstance(inp, list):
+            p = T(I(size=len(inp)), _=inp)
+            p.name = other.name.capitalize()
+            return p, True
+
+        elif isinstance(inp, T):
+            return inp, True
         return inp, False
 
     def mismatch(self, one, two):
@@ -416,6 +441,7 @@ class F:
 
     def latex(self) -> str:
         """Equation"""
+
         if self.one is not None:
             # if isinstance(self.one, (int, float)):
             #     one = self.one
@@ -440,7 +466,8 @@ class F:
 
         if self.mul:
             # handling special case where something is multiplied by -1
-            if self.one and self.one.isnum and self.one[0] in [-1, -1.0]:
+            if self.isnegvar:
+                # if self.one and self.one.isnum and self.one[0] in [-1, -1.0]:
                 return rf'-{two}'
             # if isinstance(one, (int, float)) and float(one) == -1.0:
             #     return rf'-{two or ""}'
@@ -583,6 +610,13 @@ class F:
 
     def __len__(self):
         # TODO - fix
+        if not self.one_:
+            return len(self.two_)
+        if not self.two_:
+            return len(self.one_)
+
+        if len(self.one_) > len(self.two_):
+            return len(self.one_)
         return len(self.two_)
 
     def __str__(self):

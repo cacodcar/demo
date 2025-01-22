@@ -5,22 +5,21 @@
     4. lost by Storage and Transits
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Self
+from typing import Self
 
-from ...decisions.flow import Flow
+from ...decisions.default import Trade
+
+# from ...decisions.flow import Flow
 from .._core.modeling import Component
 from ..operation.task import Task
 
-if TYPE_CHECKING:
-    from ..measure.basis import Basis
-
 
 @dataclass
-class Resource(Component):
+class Resource(Component, Trade):
     """A resource, can be a material, chemical, energy, etc."""
+
+    
 
     def __post_init__(self):
 
@@ -29,8 +28,8 @@ class Resource(Component):
         self.tasks: list[Task] = []
         # self.balance: dict[Task : int | float] = {}
 
-        self.produce = Flow(label='Amt of Resource operated upon')
-        self.consume = -self.produce
+        # self.produce = Flow(label='Amt of Resource operated upon')
+        # self.consume = -self.produce
 
     @property
     def balance(self) -> dict[Task, int | float]:

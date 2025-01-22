@@ -1,17 +1,17 @@
 """Graph"""
 
+from dataclasses import dataclass
+
+from ..components._core.tag import Name
 from ..components.graph.edge import Edge
 from ..components.graph.node import Node
-from .rep import Rep
 
 
-class Graph(Rep):
+@dataclass
+class Graph(Name):
     """Graph representation"""
 
-    def __init__(self):
-
-        Rep.__init__(self)
-
+    def __post_init__(self):
         self.nodes = []
         self.edges = []
 

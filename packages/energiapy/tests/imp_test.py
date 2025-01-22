@@ -1,7 +1,7 @@
 import pytest
 
-from ...energiapy.src.energiapy.components.impact.categories import Environ
-from ...energiapy.src.energiapy.components.impact.categories import Social
+from ...energiapy.src.energiapy.components.impact.categories import (Environ,
+                                                                     Social)
 from ...energiapy.src.energiapy.modeling.model import Model
 
 

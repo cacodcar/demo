@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from gana.sets.index import I
-from gana.block.program import Prg
 
 if TYPE_CHECKING:
     from ...modeling.model import Model
@@ -16,33 +15,29 @@ if TYPE_CHECKING:
 class Index:
     """A component with a mathematical program"""
 
-    name: str = None
     label: str = None
 
     def __post_init__(self):
-        # Model
+
         self.model: Model = None
-        self.program: Prg = None
-        self._program: Prg = Prg()
-        self._indexed = False
+        self.name: str = ''
+
+    @property
+    def program(self):
+        """Mathematical program"""
+        return self.model.program
 
     @property
     def index(self):
         """Index set"""
-        if not self._indexed:
-            setattr(self._program, self.name, I(self.name))
-            self._indexed = True
-        return getattr(self._program, self.name)
-
-    @property
-    def x(self):
-        """gana index element (X)"""
         return getattr(self.program, self.name)
 
     @property
-    def _(self):
+    def I(self):
         """gana index set (I)"""
-        return self.index
+        index = I(self.name, mutable=True, tag=self.label)
+        index.name = self.name
+        return index
 
     def pprint(self, descriptive=False):
         """Pretty print the component"""

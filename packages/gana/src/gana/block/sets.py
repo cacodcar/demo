@@ -33,6 +33,13 @@ class Sets:
         self._nf = 0  # function sets
         self._nc = 0  # constraint sets
 
+    @property
+    def I_nn(self) -> I:
+        """non-negative variable set"""
+        i = I(*[str(v) for v in self.nnvars()])
+        i.name = 'nnvars'
+        return i
+
     def __setattr__(self, name, value):
 
         if isinstance(value, (int, list)):
@@ -63,7 +70,8 @@ class Sets:
             return
 
         elif isinstance(value, P):
-            value.name = name
+            if not value.name:
+                value.name = name
             value.n = self._np
             self._np += 1
             self.parameter.append(value)

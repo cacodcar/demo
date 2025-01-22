@@ -4,9 +4,8 @@
 from dataclasses import dataclass, field
 
 from ...analytical.player import Player
-from ...components.commodity.misc import Cash
 from ...components.commodity.emission import Emission
-from ...components.commodity.misc import Land
+from ...components.commodity.misc import Cash, Land
 
 
 @dataclass

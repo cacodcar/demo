@@ -65,8 +65,12 @@ def make_conversion_dict(file_name: str) -> dict:
     Returns:
         dict: dictionary with conversion values
     """
-    conversion_dict_ = pandas.read_csv(file_name, index_col=0).dropna(
-        axis='rows').transpose().to_dict()
+    conversion_dict_ = (
+        pandas.read_csv(file_name, index_col=0)
+        .dropna(axis='rows')
+        .transpose()
+        .to_dict()
+    )
     dump_data(conversion_dict_, 'conversion.json')
     return conversion_dict_
 
@@ -80,14 +84,20 @@ def make_material_dict(file_name: str) -> dict:
     Returns:
         dict: dictionary with infrastructaral material needs
     """
-    material_dict_ = pandas.read_csv(file_name, index_col=0).dropna(
-        axis='rows').transpose().to_dict()
+    material_dict_ = (
+        pandas.read_csv(file_name, index_col=0)
+        .dropna(axis='rows')
+        .transpose()
+        .to_dict()
+    )
     dump_data(material_dict_, 'material.json')
 
     return material_dict_
 
 
-def make_cost_dict(location_list: list, cost_scenario_list: list, process_list: list, year_list: list) -> dict:
+def make_cost_dict(
+    location_list: list, cost_scenario_list: list, process_list: list, year_list: list
+) -> dict:
     """intializes an empty dictionary for cost data for all processes
 
     Args:
@@ -100,15 +110,31 @@ def make_cost_dict(location_list: list, cost_scenario_list: list, process_list: 
         dict: dictionary with costs
     """
 
-    cost_metrics_list = ['CAPEX', 'Fixed O&M',
-                         'Variable O&M', 'units', 'source']
-    cost_dict = {location_.name: {cost_scenario.name: {process_.name: {year_: {cost_metric_: {} for cost_metric_ in cost_metrics_list}
-                                                                       for year_ in year_list} for process_ in process_list} for cost_scenario in cost_scenario_list} for location_ in location_list}
+    cost_metrics_list = ['CAPEX', 'Fixed O&M', 'Variable O&M', 'units', 'source']
+    cost_dict = {
+        location_.name: {
+            cost_scenario.name: {
+                process_.name: {
+                    year_: {cost_metric_: {} for cost_metric_ in cost_metrics_list}
+                    for year_ in year_list
+                }
+                for process_ in process_list
+            }
+            for cost_scenario in cost_scenario_list
+        }
+        for location_ in location_list
+    }
 
     return cost_dict
 
 
-def make_f_purchase(location_list: list, day_list: list, hour_list: list, resource_list: list, varying_resource_df: pandas.DataFrame) -> dict:
+def make_f_purchase(
+    location_list: list,
+    day_list: list,
+    hour_list: list,
+    resource_list: list,
+    varying_resource_df: pandas.DataFrame,
+) -> dict:
     """makes a dictionary for varying resource costs.
     minimum resolution hour|
 
@@ -123,12 +149,24 @@ def make_f_purchase(location_list: list, day_list: list, hour_list: list, resour
         dict: dictionary containing hourly conversion factors for all processes
     """
 
-    f_purchase_dict_ = {location.name: {resource.name: {day: {hour: {} for hour in hour_list}
-                                                        for day in day_list} for resource in resource_list} for location in location_list}
-    for location, resource, day, hour in product(location_list, resource_list, day_list, hour_list):
+    f_purchase_dict_ = {
+        location.name: {
+            resource.name: {day: {hour: {} for hour in hour_list} for day in day_list}
+            for resource in resource_list
+        }
+        for location in location_list
+    }
+    for location, resource, day, hour in product(
+        location_list, resource_list, day_list, hour_list
+    ):
         if resource.name in varying_resource_df:
-            f_purchase_dict_[location.name][resource.name][day][hour] = varying_resource_df[varying_resource_df['day']
-                                                                                            == day][resource.name].values[0]  # use day of the year (doy)
+            f_purchase_dict_[location.name][resource.name][day][
+                hour
+            ] = varying_resource_df[varying_resource_df['day'] == day][
+                resource.name
+            ].values[
+                0
+            ]  # use day of the year (doy)
         else:
             f_purchase_dict_[location.name][resource.name][day][hour] = 1
 
@@ -142,7 +180,11 @@ def make_f_purchase(location_list: list, day_list: list, hour_list: list, resour
     return f_purchase_dict_
 
 
-def make_henry_price_df(file_name: str, year: int, stretch: bool = False,) -> pandas.DataFrame:
+def make_henry_price_df(
+    file_name: str,
+    year: int,
+    stretch: bool = False,
+) -> pandas.DataFrame:
     """makes a df from data with missing data filled using previous day values
     The costs are converted to $/kg from $/MMBtu using a factor of /22.4
     Only works if there is an entire year of data (365). Converts form $/MMBtu to $/kg (x/22.4)
@@ -159,8 +201,7 @@ def make_henry_price_df(file_name: str, year: int, stretch: bool = False,) -> pa
     df = pandas.read_csv(file_name, skiprows=5, names=['date', 'CH4'])
 
     df[["month", "day", "year"]] = df['date'].str.split("/", expand=True)
-    df = df[df['year'] == str(year)].astype(
-        {"month": int, "day": int, "year": int})
+    df = df[df['year'] == str(year)].astype({"month": int, "day": int, "year": int})
     # , format='%d%b%Y:%H:%M:%S.%f')
     df['date'] = pandas.to_datetime(df['date'])
     df['doy'] = df['date'].dt.dayofyear
@@ -172,13 +213,40 @@ def make_henry_price_df(file_name: str, year: int, stretch: bool = False,) -> pa
     for i in numpy.arange(1, 366):
         if i not in doy_list:
             if i == 1:  # onetime fix if first day has no value, takes value from day 2
-                df = pandas.concat([df, pandas.DataFrame.from_records([{'CH4': df['CH4'][df['doy'] == 2].values[0],
-                                                                        'month': 1, 'day': 1, 'year': year, 'doy': 1}])])
+                df = pandas.concat(
+                    [
+                        df,
+                        pandas.DataFrame.from_records(
+                            [
+                                {
+                                    'CH4': df['CH4'][df['doy'] == 2].values[0],
+                                    'month': 1,
+                                    'day': 1,
+                                    'year': year,
+                                    'doy': 1,
+                                }
+                            ]
+                        ),
+                    ]
+                )
                 # df = df.append({'CH4': df['CH4'][df['doy'] == 2].values[0], 'month': 1, 'day': 1, 'year': year, 'doy': 1}, ignore_index=True)
             else:
-                df = pandas.concat([df, pandas.DataFrame.from_records([{'CH4': df['CH4'][df['doy'] == i-1].values[0],
-                                                                        'month': df['month'][df['doy'] == i-1].values[0], 'day': df['day'][df['doy'] == i-1].values[0],
-                                                                        'year': df['year'][df['doy'] == i-1].values[0], 'doy': i}])])
+                df = pandas.concat(
+                    [
+                        df,
+                        pandas.DataFrame.from_records(
+                            [
+                                {
+                                    'CH4': df['CH4'][df['doy'] == i - 1].values[0],
+                                    'month': df['month'][df['doy'] == i - 1].values[0],
+                                    'day': df['day'][df['doy'] == i - 1].values[0],
+                                    'year': df['year'][df['doy'] == i - 1].values[0],
+                                    'doy': i,
+                                }
+                            ]
+                        ),
+                    ]
+                )
                 # df = df.append({'CH4': df['CH4'][df['doy'] == i-1].values[0], 'month': df['month'][df['doy'] == i-1].values[0], 'day': df['day'][df['doy'] == i-1].values[0], 'year': df['year'][df['doy'] == i-1].values[0], 'doy': i}, ignore_index=True)
 
     df = df.sort_values(by=['doy'])
@@ -191,9 +259,8 @@ def make_henry_price_df(file_name: str, year: int, stretch: bool = False,) -> pa
 
     else:
         df = df.loc[df.index.repeat(24)].reset_index(drop=True)
-        df['hour'] = [int(i) for i in range(0, 24)]*365
-        df['scales'] = [(0, int(i - 1), int(j))
-                        for i, j in zip(df['day'], df['hour'])]
+        df['hour'] = [int(i) for i in range(0, 24)] * 365
+        df['scales'] = [(0, int(i - 1), int(j)) for i, j in zip(df['day'], df['hour'])]
     df = df[['CH4', 'scales']]
     return df
 
@@ -285,13 +352,19 @@ def load_results(filename: str) -> Result:
     results_dict = pickle.load(file_)
     if results_dict['output']['termination'] != 'optimal':
         print('WARNING: Loading non-optimal results')
-    results = Result(name=filename.split('.')[
-                     0], output=results_dict['output'], components=results_dict['components'], duals=results_dict['duals'])
+    results = Result(
+        name=filename.split('.')[0],
+        output=results_dict['output'],
+        components=results_dict['components'],
+        duals=results_dict['duals'],
+    )
 
     return results
 
 
-def remove_outliers(data: pandas.DataFrame, sd_cuttoff: int = 2, mean_range: int = 1) -> pandas.DataFrame:
+def remove_outliers(
+    data: pandas.DataFrame, sd_cuttoff: int = 2, mean_range: int = 1
+) -> pandas.DataFrame:
     """Removes outliers upto chosen standard deviations
     fixes data as the mean of data points on both sides of the point
     Args:
@@ -308,16 +381,21 @@ def remove_outliers(data: pandas.DataFrame, sd_cuttoff: int = 2, mean_range: int
     for i in range(len(data)):
         x = data.iloc[i].values[0]
         if x < float(lower) or x > float(upper):
-            data.iloc[i] = (sum(data.iloc[i-(j+1)] for j in range(mean_range)) +
-                            sum(data.iloc[i+(j+1)] for j in range(mean_range)))/2*mean_range
+            data.iloc[i] = (
+                (
+                    sum(data.iloc[i - (j + 1)] for j in range(mean_range))
+                    + sum(data.iloc[i + (j + 1)] for j in range(mean_range))
+                )
+                / 2
+                * mean_range
+            )
 
     return data
 
 
-
-
-
-def calculate_hourly(data: pandas.DataFrame, column_name: str, what: str = 'mean') -> pandas.DataFrame:
+def calculate_hourly(
+    data: pandas.DataFrame, column_name: str, what: str = 'mean'
+) -> pandas.DataFrame:
     """Finds the mean, min, max for each hour of the year for multi-year data
 
     Args:
@@ -326,7 +404,7 @@ def calculate_hourly(data: pandas.DataFrame, column_name: str, what: str = 'mean
         what (str, optional): 'mean', 'max', 'min'. Defaults to 'mean'.
 
     Returns:
-        pandas.DataFrame: Output 
+        pandas.DataFrame: Output
     """
     results = []
     data_input = copy.deepcopy(data)
@@ -338,40 +416,49 @@ def calculate_hourly(data: pandas.DataFrame, column_name: str, what: str = 'mean
     for month in range(1, 13):  # 12 months
         for day in range(1, 32):  # 31 days (adjust if needed)
             for hour in range(24):  # 24 hours
-                target_data_input = data_input[(data_input['month'] == month) & (
-                    data_input['day'] == day) & (data_input['hour'] == hour)]
+                target_data_input = data_input[
+                    (data_input['month'] == month)
+                    & (data_input['day'] == day)
+                    & (data_input['hour'] == hour)
+                ]
 
                 if not target_data_input.empty:
                     if what == 'max':
                         max_value = target_data_input[column_name].max()
-                        results.append({
-                            'Date': f"{month}/{day}",
-                            'Hour': hour,
-                            'Highest Value': max_value
-                        })
+                        results.append(
+                            {
+                                'Date': f"{month}/{day}",
+                                'Hour': hour,
+                                'Highest Value': max_value,
+                            }
+                        )
                     if what == 'min':
                         min_value = target_data_input[column_name].min()
-                        results.append({
-                            'Date': f"{month}/{day}",
-                            'Hour': hour,
-                            'Highest Value': min_value
-                        })
+                        results.append(
+                            {
+                                'Date': f"{month}/{day}",
+                                'Hour': hour,
+                                'Highest Value': min_value,
+                            }
+                        )
 
                     if what == 'mean':
                         mean_value = target_data_input[column_name].mean()
-                        results.append({
-                            'Date': f"{month}/{day}",
-                            'Hour': hour,
-                            'Highest Value': mean_value
-                        })
+                        results.append(
+                            {
+                                'Date': f"{month}/{day}",
+                                'Hour': hour,
+                                'Highest Value': mean_value,
+                            }
+                        )
     results = pandas.DataFrame(results)
     results = results.drop(columns=['Date', 'Hour'])
     return results
 
 
 def get_depth(dictionary: dict) -> int:
-    """ finds depth of dictionary
-    
+    """finds depth of dictionary
+
     Args:
         dictionary (dict): dictionary
 
@@ -381,9 +468,9 @@ def get_depth(dictionary: dict) -> int:
     if not isinstance(dictionary, dict) or not dictionary:
         # If the input is not a dictionary or is an empty dictionary, return 0
         return 0
-    
+
     # Recursively find the maximum depth of nested dictionaries
     max_depth = max(get_depth(value) for value in dictionary.values())
-    
+
     # Return one more than the maximum depth found
     return 1 + max_depth

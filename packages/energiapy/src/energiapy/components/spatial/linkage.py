@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self
 
 from .._core.sample import Index
+from ..measure.basis import Basis
 
 if TYPE_CHECKING:
     from ...modeling.space import Space
-    from ..measure.basis import Basis
     from .location import Loc
 
 
@@ -20,8 +20,7 @@ class Link(Index):
 
     source: Loc = None
     sink: Loc = None
-    dist: float = None
-    basis: Basis = None
+    dist: float | Basis = None
     space: Space = None
     bi: bool = False
     sib: Self = None
@@ -43,7 +42,6 @@ class Link(Index):
             source=self.sink,
             sink=self.source,
             dist=self.dist,
-            basis=self.basis,
             label=label,
         )
         _link.name = self.name + '_'
@@ -52,5 +50,14 @@ class Link(Index):
 
     def __eq__(self, dist: int | float):
         """Sets the distance of a linkage"""
+
         self.dist = dist
+
+        self.model = self.source.model
+
+        if not self.name:
+            self.name = rf'{self.source.name}_{self.sink.name}'
+
+        setattr(self.model, self.name, self)
+
         return self

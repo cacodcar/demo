@@ -1,7 +1,6 @@
 # , process_multiple_modes
-from src.energiapy.components.task.process import (MaterialMode,
-                                                        ProcessMode,
-                                                        VaryingProcess)
+from src.energiapy.components.task.process import (MaterialMode, ProcessMode,
+                                                   VaryingProcess)
 from tests.test_fixtures import process_material_modes, process_storage
 
 

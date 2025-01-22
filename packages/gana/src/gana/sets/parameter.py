@@ -2,6 +2,7 @@
 """
 
 from functools import reduce
+from itertools import product
 from math import prod
 from typing import Self
 
@@ -55,30 +56,48 @@ class P:
     def __init__(
         self,
         *index: I,
-        _: list[float] = None,
+        _: list[float] | float = None,
         mutable: bool = False,
         tag: str = None,
     ):
-        self.tag = tag
-        self.mutable = mutable
 
-        self._: list[float] = [float(p) for p in _] if _ else []
-        self.index: I = prod(index) if index else index
+        if not _:
+            isnum = True
+            _ = [0]
+            name = 0
 
-        if self.index and self._ and len(self.index) != len(self._):
+        elif isinstance(_, (int, float)):
+            isnum = True
+            name = str(_)
+            _ = [float(_)]
+
+        else:
+            isnum = False
+            # set by program
+            name = ''
+            _ = [float(p) for p in _]
+
+        index: I = prod(index) if index else I('i', mutable=mutable)
+        index.parameters.append(self)
+        if index and _ and len(index) != len(_):
             raise ValueError(
-                f"Number of parameters does not match the number of indices ({len(self.index)})"
+                f"Index mismatch: len(values) ({len(_)}) ! = len(index) ({len(index)})"
             )
 
         # do not make property
-        self.idx = {idx: par for idx, par in zip(self.index, self._)}
+        self.idx = {idx: par for idx, par in zip(index, _)}
 
         # if this is just a single number (float or int)
-        self.isnum = False
 
-        # set by program
-        self.name = ''
+        self.index = index
+        self._ = _  # list of parameters
+
+        self.name = name
+        self.isnum = isnum
+
         self.n: int = None
+        self.tag = tag
+        self.mutable = mutable
 
     def __setattr__(self, name, value):
         # if negative, already made from another parameter, so
@@ -144,8 +163,8 @@ class P:
 
         # self._ = [-i for i in self._]
         # return self
-        p = P(_=[-i for i in self._])
-        p.index = self.index
+        p = P(self.index, _=[-i for i in self._])
+        # p.index = self.index
         p.isnum = self.isnum
         if self.isneg():
             p.name = self.name[1:]
@@ -178,14 +197,46 @@ class P:
     # they only kick in when the left hand side operator
     # does not have the operation/the operation did not work
     # in this case, we just do the equivalent self
+
+    def __float__(self):
+        if self.isnum:
+            return self._[0]
+        return self
+
     def __add__(self, other: Self):
 
-        if other == 0:
-            return self
+        if isinstance(other, (int, float)):
+
+            if other == 0:
+                return self
+            if self.isnum:
+                par = P(self.index, _=self._[0] + other, mutable=self.mutable)
+                par.name = f'{float(par)}'
+                return par
+
+            par = P(self.index, _=[i + other for i in self._])
+            par.name = f'({self.name}+{other})'
+            return par
+
+        if isinstance(other, list):
+            par = P(self.index, _=[i + j for i, j in zip(self._, other)])
+            par.name = f'{self.name}+Prm'
+            return par
 
         if isinstance(other, P):
-            self._ = [i + j for i, j in zip(self._, other._)]
-            return self
+            if self.isnum and other.isnum:
+                return P(
+                    self.index + other.index,
+                    _=self._[0] + other._[0],
+                    mutable=self.mutable,
+                )
+            par = P(
+                self.index + other.index,
+                _=[i + j for i, j in zip(self._, other._)],
+                mutable=self.mutable,
+            )
+            par.name = f'{self.name}+{other.name}'
+            return par
 
         return F(one=self, add=True, two=other)
 
@@ -193,17 +244,47 @@ class P:
         return self + other
 
     def __sub__(self, other: Self):
-        if isinstance(other, int) and other == 0:
-            return self
+
+        if isinstance(other, (int, float)):
+
+            if other == 0:
+                return self
+            if self.isnum:
+                par = P(self.index, _=self._[0] - other, mutable=self.mutable)
+                par.name = f'{float(par)}'
+                return par
+
+            par = P(self.index, _=[i - other for i in self._])
+            par.name = f'({self.name}-{other})'
+            return par
+
+        if isinstance(other, list):
+            par = P(self.index, _=[i + j for i, j in zip(self._, other)])
+            par.name = f'{self.name}+Prm'
+            return par
 
         if isinstance(other, P):
-            self._ = [i - j for i, j in zip(self._, other._)]
-            return self
+            if self.isnum and other.isnum:
+                return P(
+                    self.index + other.index,
+                    _=self._[0] - other._[0],
+                    mutable=self.mutable,
+                )
+            par = P(
+                self.index + other.index,
+                _=[i - j for i, j in zip(self._, other._)],
+                mutable=self.mutable,
+            )
+            par.name = f'{self.name}+{other.name}'
+            return par
 
         return F(one=self, sub=True, two=other)
 
     def __rsub__(self, other: Self):
-        return self - other
+        if isinstance(other, (float, int)):
+            if other == 0:
+                return -self
+        return -self + other
 
     def __mul__(self, other: Self | int | float | V | F):
         if isinstance(other, (int, float)):
@@ -211,10 +292,49 @@ class P:
                 return self
             if other in [0, 0.0]:
                 return 0
-        if isinstance(other, P):
-            par = P(self.index, _=[i * j for i, j in zip(self._, other._)])
-            par.name = f'{self.name} * {other.name}'
+
+            par = P(self.index, _=[i * other for i in self._], mutable=self.mutable)
+            if self.isnum:
+                par.name = f'{float(self)}*{other}'
+            else:
+                par.name = f'{self.name}*{other}'
             return par
+
+        if isinstance(other, list):
+            par = P(
+                self.index,
+                _=[i * j for i, j in zip(self._, other)],
+                mutable=self.mutable,
+            )
+            par.name = f'{self.name}*Prm'
+            return par
+
+        if isinstance(other, P):
+            name_ = None
+            if self.isnum:
+                if other.isnum:
+                    _ = float(self) * float(other)
+                    name_ = f'{float(par)}'
+                else:
+                    _ = [float(self) * i for i in other._]
+
+            elif other.isnum:
+                _ = [i * float(other) for i in self._]
+
+            else:
+                _ = [i * j for i, j in zip(self._, other._)]
+
+            if not name_:
+                name_ = f'{self.name}*{other.name}'
+
+            par = P(
+                self.index * other.index,
+                _=_,
+                mutable=self.mutable,
+            )
+            par.name = name_
+            return par
+
         if isinstance(other, F):
             if other.add:
                 return F(one=self * other.one, add=True, two=self * other.two)
@@ -223,9 +343,10 @@ class P:
         return F(one=self, mul=True, two=other)
 
     def __rmul__(self, other: Self):
-        if isinstance(other, int) and other == 1:
-            return self
-        return other * self
+        if isinstance(other, (float, int)):
+            if int(other) == 1:
+                return self
+            return self * other
 
     def __truediv__(self, other: Self):
         if isinstance(other, P):
@@ -295,6 +416,10 @@ class P:
         return len(self.index._)
 
     def __call__(self, *key: tuple[X | Idx | I]) -> Self:
+
+        if not key:
+            return self
+
         # if the whole set is called
         if prod(key) == self.index:
             return self

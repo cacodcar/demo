@@ -93,7 +93,11 @@ class V:
         self.mutable = mutable
 
         # Matrix of coefficients
-        self.index: I = prod(index) if index else index
+
+        index: I = prod(index) if index else I('i', mutable=mutable)
+
+        index.variables.append(self)
+        self.index = index
 
         # self.A = [[0] * len(self) for _ in range(len(self))]
 
@@ -235,13 +239,14 @@ class V:
         from .parameter import P
 
         # doing this here saves some time
-        p = P(_=[-1.0] * len(self))
+        p = P(self.index, _=[-1.0] * len(self))
         # dont pass index during declaration since its already processed
-        p.index, p.name, p.isnum = self.index, '-1', True
+        p.index = self.index
+        p.name = '-1'
         # let the function know that you are passing something consistent already
         # saves time
         f = F(one=p, mul=True, two=self, consistent=True)
-        f.isnnvar = True
+        f.isnegvar = True
         return f
 
     def __pos__(self):
@@ -267,7 +272,6 @@ class V:
 
         if isinstance(other, F):
             return -other + self
-
         return F(one=self, sub=True, two=other)
 
     def __rsub__(self, other: Self | F | int):
@@ -323,9 +327,14 @@ class V:
             yield self(i)
 
     def __len__(self):
-        return len(self.index._)
+        if self.index:
+            return len(self.index._)
+        return 1
 
     def __call__(self, *key: tuple[X | Idx | I]) -> Self:
+
+        if not key:
+            return self
 
         # if the whole set is called
         if prod(key) == self.index:
