@@ -1,6 +1,0 @@
-# Jupyter notebook support
-notebook
-
-# Your packages (editable install)
--e ./packages/gana
--e ./packages/energia
