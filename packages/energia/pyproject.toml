@@ -23,7 +23,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["gana @ file:./gana", "ppopt", "matplotlib"]
+dependencies = ["gana", "ppopt", "matplotlib"]
 [project.optional-dependencies]
 test = ["coverage", "pytest"]
 
