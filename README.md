@@ -1,3 +1,6 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cacodcar/demo/HEAD)
+
+
 Before running the case studies 
 
 1. create a venv 
