@@ -1,14 +1,11 @@
-"""Mathematical Program"""
+"""Program"""
 
 from dataclasses import dataclass, field
 from typing import Self
 
-from gurobipy import read as gpread
-from IPython.display import display
-
 from ..elements.cons import Cons
 from ..elements.func import Func
-from ..elements.idx import X
+from ..elements.idx import Skip, X
 from ..elements.obj import Obj
 from ..elements.pvar import PVar
 from ..elements.var import Var
@@ -20,6 +17,22 @@ from ..sets.theta import T
 from ..sets.variable import V
 from .sets import Sets
 
+# These are optional imports
+
+try:
+    from gurobipy import read as gpread
+
+    has_gurobi = True
+except ImportError:
+    has_gurobi = False
+
+try:
+    from IPython.display import display
+
+    has_ipython = True
+except ImportError:
+    has_ipython = False
+
 try:
     from pyomo.environ import ConcreteModel as PyoModel
 
@@ -27,15 +40,31 @@ try:
 except ImportError:
     has_pyomo = False
 
-# from ..value.zero import Z
-# from ..sets.ordered import Set
-
-# from ..sets.theta import T
-
 
 @dataclass
 class Prg:
-    """A mathematical program"""
+    """A mathematical program
+    Can be a linear (LP), integer (IP), or mixed-integer (MIP)
+
+    Args:
+        name (str, optional): Name of the program. Defaults to 'prog'.
+        tol (float, optional): Tolerance. Defaults to None.
+        canonical (bool, optional): Canonical form. Defaults to True.
+
+    Attributes:
+        names (list[str]): Names of declared sets
+        sets (Sets): An object to hold set objects
+        names_idx (list[str]): Names of the index elements
+        indices (list[X]): Index sets
+        variables (list[Var]): Variable sets
+        thetas (list[PVar]): Parametric Variable sets
+        functions (list[Func]): Function sets
+        constraints (list[Cons]): Constraint sets
+        objectives (list[Obj]): Objectives
+
+    Raises:
+        ValueError: if overwriting a set
+    """
 
     name: str = field(default='prog')
     tol: float = field(default=None)
@@ -63,13 +92,23 @@ class Prg:
         self._ncons = 0  # constraints
         self._nobj = 0  # objectives
 
-    def __setattr__(self, name, value) -> None:
+    def update_name(self, name: str, value: P | V | T) -> bool:
+        """Update the name of the program"""
+        if not name in self.names:
+            self.names.append(name)
+            setattr(self.sets, name, value)
+            return False
+        return True
 
+    def __setattr__(self, name, value) -> None:
+        #  if value is not a set object, ignore
         if isinstance(value, (str, float, int, list, Sets)) or value is None:
             super().__setattr__(name, value)
             return
 
+        # check overwriting
         if name in self.names:
+            # if set with the same name is mutable, update it
             if isinstance(value, (I, V, P, T)) and getattr(self, name).mutable:
                 value.mutable = True
             else:
@@ -89,7 +128,8 @@ class Prg:
                 if getattr(self, name).mutable:
                     setattr(self.sets, name, getattr(self, name) | value)
                     skip_set = True
-                skip_set = False
+                else:
+                    skip_set = False
 
             if not value.ordered:
                 for n, idx in enumerate(value._):
@@ -116,22 +156,24 @@ class Prg:
             for n, var in enumerate(add_vars):
                 var.n = self._nvar + n
 
-            self._nvar += add_len
-
             if not name in self.names:
                 self.names.append(name)
                 setattr(self.sets, name, value)
+                skip_set = False
                 if value.nn:
                     setattr(self, value.name + '_nn', -value <= 0)
-                skip_set = False
+                self._nvar += add_len
 
             else:
 
                 # the var set is mutable and new vars are being add
                 var_ex: V = getattr(self.sets, name)  # existing var set
-
-                if set(value.index).issubset(var_ex.index):
+                if set([i for i in value.index if not isinstance(i, Skip)]).issubset(
+                    var_ex.index
+                ):
                     return
+
+                self._nvar += add_len
 
                 for var in value._:
                     # push the positions of the new variables ahead
@@ -153,6 +195,7 @@ class Prg:
 
             self.variables += add_vars
             if not skip_set:
+
                 super().__setattr__(name, value)
             return
 
@@ -162,14 +205,14 @@ class Prg:
             if not name in self.names:
                 self.names.append(name)
                 setattr(self.sets, name, value)
-                make_set = False
+                skip_set = False
             else:
                 par_ex: P = getattr(self.sets, name)
                 if par_ex.isnum and value.isnum:
-                    make_set = False
+                    skip_set = False
                     par_ex.name = f'[ {par_ex.name}, {value.name} ]'
                 else:
-                    make_set = True
+                    skip_set = True
 
                 if set(value.index).issubset(par_ex.index):
                     return
@@ -178,7 +221,7 @@ class Prg:
                 par_ex.index |= value.index
                 par_ex.idx = {idx: par for idx, par in zip(par_ex.index, par_ex._)}
 
-            if not make_set:
+            if not skip_set:
                 super().__setattr__(name, value)
             return
 
@@ -327,7 +370,6 @@ class Prg:
             _A = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
         else:
             _A = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
-
         for n, c in enumerate(self.constraints):
             for x, a in zip(c.X, c.A):
                 if x is not None:
@@ -337,7 +379,7 @@ class Prg:
 
     @property
     def F(self, zero: bool = True) -> list[list[float | None]]:
-        """Matrix of Variable coefficients"""
+        """Matrix of Parameteric Variable coefficients"""
         if zero:
             _F = [[0] * len(self.thetas) for _ in range(len(self.cons()))]
         else:
@@ -388,9 +430,9 @@ class Prg:
         g < = 0
         """
         if zero:
-            _G = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _G = [[0] * len(self.contvars()) for _ in range(len(self.leqcons()))]
         else:
-            _G = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _G = [[None] * len(self.contvars()) for _ in range(len(self.leqcons()))]
 
         for n, c in enumerate(self.leqcons()):
             for x, a in zip(c.X, c.A):
@@ -406,9 +448,9 @@ class Prg:
         h = 0
         """
         if zero:
-            _H = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _H = [[0] * len(self.contvars()) for _ in range(len(self.eqcons()))]
         else:
-            _H = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _H = [[None] * len(self.contvars()) for _ in range(len(self.eqcons()))]
 
         for n, c in enumerate(self.eqcons()):
             for x, a in zip(c.X, c.A):
@@ -421,9 +463,9 @@ class Prg:
     def NN(self, zero: bool = True) -> list[float | None]:
         """Matrix of Variable coefficients for non negative cons"""
         if zero:
-            _NN = [[0] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _NN = [[0] * len(self.contvars()) for _ in range(len(self.nncons()))]
         else:
-            _NN = [[None] * len(self.contvars()) for _ in range(len(self.cons()))]
+            _NN = [[None] * len(self.contvars()) for _ in range(len(self.nncons()))]
 
         for n, c in enumerate(self.nncons()):
             for x, a in zip(c.X, c.A):
@@ -536,12 +578,15 @@ class Prg:
         if using == 'gurobi':
             m = self.gurobi()
             m.optimize()
-            vals = [v.X for v in m.getVars()]
-            for v, val in zip(self.variables, vals):
-                v._ = val
+            try:
+                vals = [v.X for v in m.getVars()]
+                for v, val in zip(self.variables, vals):
+                    v._ = val
 
-            for f in self.functions:
-                f.eval()
+                for f in self.functions:
+                    f.eval()
+            except AttributeError:
+                pass
 
         self._isopt = True
 
@@ -608,7 +653,7 @@ class Prg:
                 if not c.parent:
                     display(c.latex())
 
-    def pprint(self, descriptive: bool = False):
+    def pprint(self, descriptive: bool = False, nncons: bool = False):
         """Pretty Print"""
 
         print(rf'Mathematical Program for {self.name}')
@@ -629,6 +674,7 @@ class Prg:
 
             for o in self.objectives:
                 o.pprint()
+
         if self.functions:
             print()
             print(r'---Functions---')
@@ -651,7 +697,7 @@ class Prg:
                 for c in self.eqcons():
                     c.pprint()
 
-            if self.nncons():
+            if self.nncons() and nncons:
                 print(r'Non-Negativity Constraints:')
                 for c in self.nncons():
                     c.pprint()

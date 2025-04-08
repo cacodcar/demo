@@ -74,6 +74,11 @@ class Var:
                 self._name_set = False
         return self._name
 
+    @property
+    def index(self):
+        """Index of the variable set"""
+        return self.parent.index
+
     def latex(self):
         """Latex representation"""
 
@@ -82,7 +87,7 @@ class Var:
             name
             + sup
             + r'_{'
-            + rf'{self.parent.index[self.pos]}'.replace('(', '').replace(')', '')
+            + rf'{self.index[self.pos]}'.replace('(', '').replace(')', '')
             + r'}'
         )
 

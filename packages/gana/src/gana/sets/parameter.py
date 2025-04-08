@@ -8,7 +8,7 @@ from typing import Self
 
 from IPython.display import Math, display
 
-from ..elements.idx import Idx, X
+from ..elements.idx import Idx, Skip, X
 from .constraint import C
 from .function import F
 from .index import I
@@ -77,12 +77,15 @@ class P:
             name = ''
             _ = [float(p) for p in _]
 
-        index: I = prod(index) if index else I('i', mutable=mutable)
-        index.parameters.append(self)
-        if index and _ and len(index) != len(_):
-            raise ValueError(
-                f"Index mismatch: len(values) ({len(_)}) ! = len(index) ({len(index)})"
-            )
+        if index:
+            index: I = prod(index)
+            index.parameters.append(self)
+            if _ and len(index) != len(_):
+                raise ValueError(
+                    f"Index mismatch: len(values) ({len(_)}) ! = len(index) ({len(index)})"
+                )
+        else:
+            index = I('i', mutable=mutable)
 
         # do not make property
         self.idx = {idx: par for idx, par in zip(index, _)}
@@ -163,8 +166,13 @@ class P:
 
         # self._ = [-i for i in self._]
         # return self
-        p = P(self.index, _=[-i for i in self._])
-        # p.index = self.index
+        p = P(
+            _=[
+                -i if not isinstance(self.index[n], Skip) else 0.0
+                for n, i in enumerate(self._)
+            ]
+        )
+        p.index = self.index
         p.isnum = self.isnum
         if self.isneg():
             p.name = self.name[1:]
@@ -200,7 +208,8 @@ class P:
 
     def __float__(self):
         if self.isnum:
-            return self._[0]
+
+            return self._[-1]
         return self
 
     def __add__(self, other: Self):
@@ -210,7 +219,7 @@ class P:
             if other == 0:
                 return self
             if self.isnum:
-                par = P(self.index, _=self._[0] + other, mutable=self.mutable)
+                par = P(self.index, _=self._[-1] + other, mutable=self.mutable)
                 par.name = f'{float(par)}'
                 return par
 
@@ -293,7 +302,14 @@ class P:
             if other in [0, 0.0]:
                 return 0
 
-            par = P(self.index, _=[i * other for i in self._], mutable=self.mutable)
+            par = P(
+                _=[
+                    0 if isinstance(self.index[n], Skip) else i * other
+                    for n, i in enumerate(self._)
+                ],
+                mutable=self.mutable,
+            )
+            par.index = self.index
             if self.isnum:
                 par.name = f'{float(self)}*{other}'
             else:
@@ -328,7 +344,7 @@ class P:
                 name_ = f'{self.name}*{other.name}'
 
             par = P(
-                self.index * other.index,
+                self.index,
                 _=_,
                 mutable=self.mutable,
             )
@@ -430,7 +446,9 @@ class P:
         # if a subset is called
         if isinstance(prod(key), I):
             par.index = prod(key)
-            par._ = [self.idx[idx] for idx in prod(key)]
+            par._ = [
+                self.idx[idx] if not isinstance(idx, Skip) else 0 for idx in prod(key)
+            ]
             return par
 
         # if a single index is called

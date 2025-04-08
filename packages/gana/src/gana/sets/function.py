@@ -6,12 +6,20 @@ from __future__ import annotations
 from functools import reduce
 from typing import TYPE_CHECKING, Self
 
-# from enum import Enum, auto
-from IPython.display import Math, display
+from collections import OrderedDict
+
 
 from ..elements.func import Func
+from ..elements.idx import Skip
 from .constraint import C
 from .index import I
+
+try:
+    from IPython.display import Math, display
+
+    has_ipython = True
+except ImportError:
+    has_ipython = False
 
 if TYPE_CHECKING:
     from ..elements.idx import Idx, X
@@ -78,7 +86,9 @@ class F:
 
         # if the function is -1*v (negation)
         self.isnegvar = False
+        self.issum: V = None
         self.istheta = False
+        # self._variables = False
 
         if not consistent:
             # make input int | float | list into P
@@ -100,8 +110,8 @@ class F:
             consistent = True
 
         self.isconsistent = consistent
-
         # check for mismatch in length
+
         mis = self.mismatch(one, two)
 
         if mis < 1:
@@ -123,15 +133,18 @@ class F:
 
         # index is a combination
 
-        index = one.index + two.index
-        if index:
-            index.functions.append(self)
+        index: I = None
         if one.index:
+            index += one.index
             one.index.functions.append(self)
+
         if two.index:
+            index += two.index
             two.index.functions.append(self)
 
-        self.index = index
+        if index:
+
+            index.functions.append(self)
 
         # self.consistent()
 
@@ -147,6 +160,10 @@ class F:
 
         n = 0
         for i, j in zip(one_, two_):
+            if isinstance(index[n], Skip):
+                self._.append(None)
+                n += 1
+                continue
             self._.append(
                 Func(
                     **args,
@@ -158,6 +175,8 @@ class F:
             )
             n += 1
 
+        self.index = index
+
         self.args = args
         self.one_ = one_
         self.two_ = two_
@@ -167,8 +186,8 @@ class F:
         self.sub = sub
         self.div = div
 
-        self.one = one
-        self.two = two
+        self._one = one
+        self._two = two
 
         if mul:
             rel = '×'
@@ -209,17 +228,27 @@ class F:
 
         self.matrix()
 
-    @property
-    def variables(self) -> dict[int, list[V]]:
-        """Variables"""
+        v_ = OrderedDict((i, []) for i in range(len(self)))
         v_ = {i: [] for i in range(len(self))}
         for i in range(len(self)):
             for n, e in enumerate(self.elems_):
                 if self.vars[n]:
-                    v_[i].append(e[i])
+                    if e[i]:
+                        v_[i].append(e[i])
                 elif self.funcs[n]:
-                    v_[i].extend(e[i].variables)
-        return v_
+                    if e[i]:
+                        v_[i].extend(e[i].variables)
+        self.variables = v_
+
+    @property
+    def one(self):
+        """Element one"""
+        return self._one(self.index.one)
+
+    @property
+    def two(self):
+        """Element two"""
+        return self._two(self.index.two)
 
     @property
     def elems(self):
@@ -394,14 +423,20 @@ class F:
         from .parameter import P
 
         if isinstance(inp, (int, float)):
-            p = P(other.index, _=[inp] * len(other))
+            p = P(
+                _=[
+                    inp if not isinstance(other.index[_], Skip) else 0.0
+                    for _ in range(len(other))
+                ],
+            )
+            p.index = other.index
             p.name = str(inp)
             p.isnum = True
             return p, True
 
         elif isinstance(inp, list):
             p = P(I(size=len(inp)), _=inp)
-            p.name = other.name.capitalize()
+            p.name = 'φ'  # other.name.capitalize()
             return p, True
 
         elif isinstance(inp, P):
@@ -418,9 +453,9 @@ class F:
             return t
 
         elif isinstance(inp, list):
-            p = T(I(size=len(inp)), _=inp)
-            p.name = other.name.capitalize()
-            return p, True
+            t = T(I(size=len(inp)), _=inp)
+            t.name = 'θ'  # other.name.capitalize()
+            return t, True
 
         elif isinstance(inp, T):
             return inp, True
@@ -428,15 +463,17 @@ class F:
 
     def mismatch(self, one, two):
         """Determine mismatch between indices"""
-        lone = len(one)
-        ltwo = len(two)
-        if not lone % ltwo == 0 and not ltwo % lone == 0:
-            raise ValueError('The indices are not compatible')
-        if lone > ltwo:
-            return int(lone / ltwo)
-        if ltwo > lone:
-            # negative to indicate that two is greater than one
-            return -int(ltwo / lone)
+        if one and two:
+            lone = len(one)
+            ltwo = len(two)
+
+            if not lone % ltwo == 0 and not ltwo % lone == 0:
+                raise ValueError('The indices are not compatible')
+            if lone > ltwo:
+                return int(lone / ltwo)
+            if ltwo > lone:
+                # negative to indicate that two is greater than one
+                return -int(ltwo / lone)
         return 1
 
     def latex(self) -> str:
@@ -446,7 +483,16 @@ class F:
             # if isinstance(self.one, (int, float)):
             #     one = self.one
             # else:
-            one = self.one(self.index.one).latex()
+            one_ = self.one(self.index.one)
+            # TODO issum phantom V
+            if self.funcs[0] and one_.issum:
+                v, hold, over = self.one.issum
+                oneissum = v.name
+                one = rf'\sum_{{i \in {over}}} {oneissum}_{{{str(hold).replace('[', '').replace(']','')}, i}}'
+
+            else:
+                one = one_.latex()
+
         else:
             one = None
 
@@ -454,15 +500,30 @@ class F:
             # if isinstance(self.two, (int, float)):
             #     two = self.two
             # else:
-            two = self.two(self.index.two).latex()
+            two_ = self.two(self.index.two)
+            if self.funcs[1] and two_.issum:
+                v, hold, over = self.two.issum
+                twoissum = v.name
+                two = rf'\sum_{{i \in {over}}} {twoissum}_{{{str(hold).replace('[', '').replace(']','')}, i}}'
+
+            else:
+                two = two_.latex()
         else:
             two = None
 
+        if not two:
+            return rf'{one}'
+
+        if not one:
+            return rf'{two}'
+
         if self.add:
-            return rf'{one or ""} + {two or ""}'
+            return rf'{one} + {two}'
 
         if self.sub:
-            return rf'{one or ""} - {two or ""}'
+            if self.funcs[0] and self.funcs[1]:
+                return rf'({one}) - ({two})'
+            return rf'{one} - {two}'
 
         if self.mul:
             # handling special case where something is multiplied by -1
@@ -479,11 +540,16 @@ class F:
 
     def pprint(self, descriptive: bool = False):
         """Display the function"""
-        if descriptive:
-            for f in self._:
-                display(Math(f.latex()))
+        if has_ipython:
+            if descriptive:
+                for f in self._:
+                    display(Math(f.latex()))
+            else:
+                display(Math(self.latex()))
         else:
-            display(Math(self.latex()))
+            print(
+                'IPython is an optional dependency, pip install gana[all] to get optional dependencies'
+            )
 
     def __neg__(self):
 
@@ -510,8 +576,9 @@ class F:
     def __radd__(self, other: Self | P | V | int | float | T):
         if isinstance(other, (int, float)) and other in [0, 0.0]:
             return self
-        else:
-            return self + other
+        if not other:
+            return self
+        return self + other
 
     def __sub__(self, other: Self | P | V | T):
         if isinstance(other, (int, float)) and other in [0, 0.0]:
@@ -609,15 +676,7 @@ class F:
         return len(self.index)
 
     def __len__(self):
-        # TODO - fix
-        if not self.one_:
-            return len(self.two_)
-        if not self.two_:
-            return len(self.one_)
-
-        if len(self.one_) > len(self.two_):
-            return len(self.one_)
-        return len(self.two_)
+        return len(self._)
 
     def __str__(self):
         return self.name

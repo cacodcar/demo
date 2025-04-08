@@ -19,13 +19,8 @@ if TYPE_CHECKING:
     from .parameter import P
 
 try:
-    from pyomo.environ import (
-        Binary,
-        Integers,
-        NonNegativeIntegers,
-        NonNegativeReals,
-        Reals,
-    )
+    from pyomo.environ import (Binary, Integers, NonNegativeIntegers,
+                               NonNegativeReals, Reals)
     from pyomo.environ import Var as PyoVar
 
     has_pyomo = True
@@ -239,9 +234,10 @@ class V:
         from .parameter import P
 
         # doing this here saves some time
-        p = P(self.index, _=[-1.0] * len(self))
-        # dont pass index during declaration since its already processed
+        # p = P(self.index, _=[None if isinstance(_, Skip) else -1.0 for _ in self.index ])
+        p = P(_=[-1.0] * len(self))
         p.index = self.index
+        # dont pass index during declaration since its already processed
         p.name = '-1'
         # let the function know that you are passing something consistent already
         # saves time
@@ -281,12 +277,25 @@ class V:
             return -self + other
 
     def __mul__(self, other: Self | F):
+
+        if isinstance(other, (int, float)):
+            if other in [1, 1.0]:
+                return self
+
+            elif other in [0, 0.0]:
+                return 0.0
+
+            other = float(other)
         return F(one=self, mul=True, two=other)
 
     def __rmul__(self, other: Self | F | int):
         if isinstance(other, (int, float)):
-            if other == 1:
+            if other in [1, 1.0]:
                 return self
+
+            elif other in [0, 0.0]:
+                return 0.0
+
             other = float(other)
         return F(one=other, mul=True, two=self)
 
@@ -328,7 +337,7 @@ class V:
 
     def __len__(self):
         if self.index:
-            return len(self.index._)
+            return len(self.index)
         return 1
 
     def __call__(self, *key: tuple[X | Idx | I]) -> Self:
@@ -336,19 +345,19 @@ class V:
         if not key:
             return self
 
+        prodkey = prod(key)
+
         # if the whole set is called
-        if prod(key) == self.index:
+        if prodkey == self.index:
             return self
 
-        var = V(**self.args, tag=self.tag)
+        var = V(**self.args, tag=self.tag, mutable=self.mutable)
         var.name, var.n = self.name, self.n
-
         # if a subset is called
-        if isinstance(prod(key), I):
-            var.index = prod(key)
+        if isinstance(prodkey, I):
+            var.index = prodkey
             var._ = [
-                self.idx[idx] if not isinstance(idx, Skip) else None
-                for idx in prod(key)
+                self.idx[idx] if not isinstance(idx, Skip) else None for idx in prodkey
             ]
             return var
 
@@ -357,6 +366,7 @@ class V:
             key = None & key[0]
         else:
             key = reduce(lambda a, b: a & b, key)
+        key = 1 * key
         var.index = key
         var._ = [self.idx[key]]
         return var

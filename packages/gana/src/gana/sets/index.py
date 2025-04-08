@@ -103,6 +103,7 @@ class I:
             self.ordered = False
 
         # set by program
+
         self.name = ''
         self.n = None
 
@@ -183,23 +184,7 @@ class I:
                 if self.one == self.two:
                     return self.one.reduce()
                 else:
-                    # print(self.one.reduce(), self.two.reduce())
                     return self.one.reduce() + self.two.reduce()
-
-            # idxlist = list(
-            #     set(
-            #         sum(
-            #             [
-            #                 i if isinstance(i, list) else [i]
-            #                 for i in [self.one.reduce(), self.two.reduce()]
-            #             ],
-            #             [],
-            #         )
-            #     )
-            # )
-            # idx = I()
-            # idx._ = sum([i._ for i in idxlist], [])
-            # return idx
         return self
 
         # return min(self.one, self.two, key=len)
@@ -244,6 +229,7 @@ class I:
 
     def __len__(self):
         return len(self._)
+        # return len([i for i in self._ if not isinstance(i, Skip)])
 
     # Avoid running instance checks
     def __eq__(self, other: Self):
@@ -260,7 +246,10 @@ class I:
         for i in other._:
             if not i in new:
                 new.append(i)
-        index = I(*[i.name for i in new], mutable=self.mutable or other.mutable)
+        index = I(
+            *[i.name for i in new if not isinstance(i, Skip)],
+            mutable=self.mutable or other.mutable,
+        )
         if other.name and self.name != other.name:
             index.name = f'{self.name} | {other.name}'
         else:
@@ -278,7 +267,10 @@ class I:
         for i in other._:
             if not i in self._:
                 new.append(i)
-        index = I(*[i.name for i in new], mutable=self.mutable or other.mutable)
+        index = I(
+            *[i.name for i in new if not isinstance(i, Skip)],
+            mutable=self.mutable or other.mutable,
+        )
         index.name = f'{self.name} ^ {other.name}'
         index.ordered = self.ordered or other.ordered
         return index
@@ -323,6 +315,11 @@ class I:
         i.name = rf'{[self, other]}'
         return i
 
+    def __radd__(self, other: Self):
+        if not other:
+            return self
+        return self + other
+
     def __mul__(self, other: Self | Idx | X):
         i = I()
         i.name = (
@@ -346,7 +343,13 @@ class I:
         # this to allow using math.prod
         # in V and P for single Indices
         # makes X into Idx
+
         i = I()
+        if isinstance(other, Skip):
+            i._ = [Skip()] * len(self)
+            i.name = rf'({self.name.replace('(', '').replace(')', '')}, )'
+            return i
+
         if other == 1:
             i._ = [Idx(i) for i in self._ if not isinstance(i, Skip)]
             i.name = rf'{(self)}'

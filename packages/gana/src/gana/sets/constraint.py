@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from IPython.display import Math, display
 
 from ..elements.cons import Cons
+from ..elements.idx import Skip
 
 if TYPE_CHECKING:
     from .function import F
@@ -66,6 +66,7 @@ class C:
         self._ = [
             Cons(parent=self, pos=n, func=f, leq=self.leq, nn=self.nn)
             for n, f in enumerate(self.funcs)
+            if f
         ]
 
         if self.leq:
@@ -132,7 +133,7 @@ class C:
         else:
             rel = r'='
 
-        return rf'{self.funcs.latex()} {rel} 0'
+        return rf'[{self.n}] {self.funcs.latex()} {rel} 0'
 
     def pprint(self, descriptive: bool = False):
         """Display the function"""
@@ -165,7 +166,7 @@ class C:
         return len(self.index)
 
     def __len__(self):
-        return len(self.index._)
+        return len(self._)
 
     def __str__(self):
         return self.name
